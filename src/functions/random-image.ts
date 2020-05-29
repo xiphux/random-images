@@ -20,7 +20,7 @@ export const handler: CloudFrontRequestHandler = async (event) => {
     if (!referer || !refererMatch(referer)) {
         const fallback = getFallbackImage();
         if (fallback) {
-            return redirect(getFallbackImage());
+            return redirect(fallback);
         }
     }
 
