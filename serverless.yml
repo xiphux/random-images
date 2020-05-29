@@ -1,0 +1,115 @@
+plugins:
+  - serverless-webpack
+
+service: random-images
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+  region: us-east-1
+
+custom:
+  #domain: images.example.com
+  #rootDomain: example.com
+  #certificateArn: arn:aws:acm:us-east-1:000000000000:certificate/00000000-0000-0000-0000-000000000000
+  #fallbackImage: fallback.jpg
+  # referers:
+  #   - 'https?:\/\/valid-referer.com'
+  #   - 'https?:\/\/other-referer.com\/index\.php\?id=1234'
+  webpack:
+    webpackConfig: ./webpack.config.js
+
+package:
+  individually: true
+  excludeDevDependencies: false
+
+functions:
+  images:
+    handler: src/functions/random-image.handler
+    events:
+      - cloudFront:
+          eventType: viewer-request
+          origin:
+            DomainName: ${self:custom.domain}
+
+resources:
+  Resources:
+    Bucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.domain}
+    ReadPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket:
+          Ref: Bucket
+        PolicyDocument:
+          Statement:
+            - Action: 's3:GetObject'
+              Effect: Allow
+              Resource: 'arn:aws:s3:::${self:custom.domain}/*'
+              Principal:
+                CanonicalUser:
+                  Fn::GetAtt:
+                    - CloudFrontOriginAccessIdentity
+                    - S3CanonicalUserId
+    CloudFrontOriginAccessIdentity:
+      Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+      Properties:
+        CloudFrontOriginAccessIdentityConfig:
+          Comment: ${self:custom.domain}
+    CloudFrontDistribution:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          Aliases:
+            - ${self:custom.domain}
+          DefaultCacheBehavior:
+            AllowedMethods:
+              - GET
+              - HEAD
+            CachedMethods:
+              - GET
+              - HEAD
+            Compress: true
+            DefaultTTL: 86400
+            ForwardedValues:
+              Cookies:
+                Forward: none
+              QueryString: false
+            MaxTTL: 31536000
+            MinTTL: 0
+            TargetOriginId: s3origin
+            ViewerProtocolPolicy: 'redirect-to-https'
+          DefaultRootObject: index.html
+          Enabled: true
+          HttpVersion: http2
+          Origins:
+            - DomainName:
+                Fn::GetAtt:
+                    - Bucket
+                    - DomainName
+              Id: s3origin
+              S3OriginConfig:
+                OriginAccessIdentity:
+                  Fn::Join:
+                    - '/'
+                    - - 'origin-access-identity'
+                      - 'cloudfront'
+                      - Ref: CloudFrontOriginAccessIdentity
+          PriceClass: 'PriceClass_100'
+          ViewerCertificate:
+            AcmCertificateArn: ${self:custom.certificateArn}
+            SslSupportMethod: sni-only
+    RecordSet:
+      Type: AWS::Route53::RecordSet
+      Properties:
+        HostedZoneName: ${self:custom.rootDomain}.
+        AliasTarget:
+          DNSName:
+            Fn::GetAtt:
+              - CloudFrontDistribution
+              - DomainName
+          HostedZoneId: Z2FDTNDATAQYW2 # Cloudfront always uses this id
+        Name: ${self:custom.domain}
+        Type: A
