@@ -32,7 +32,7 @@ custom:
         - 'https?:\/\/other-referer.com\/index\.php\?id=1234'
 ```
 
-Install dependencies with `npm install`, [install and configure the serverless framework](https://www.serverless.com/framework/docs/getting-started/) if you don't have it already, then deploy the stack with `serverless deploy`.
+Install dependencies with `npm install` and [install and configure the serverless framework](https://www.serverless.com/framework/docs/getting-started/) and the [AWS CLI](https://aws.amazon.com/cli/) if you don't have them already. Deploy the serverless stack with the `serverless deploy` command, and the contents of the `public` folder to the S3 bucket with the `aws s3` command.
 
 ## Built With
 
